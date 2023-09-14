@@ -1,0 +1,54 @@
+# IP address to host the server on, use 0.0.0.0 to serve on all network interfaces
+server_host_ip: 0.0.0.0
+server_host_port: 8357
+
+cameras:
+#list the cameras
+#Example:
+#- name: cam1
+#  cam_url: http://192.168.0.123
+#  path_end: example_path
+#  button_color: #ee9999
+#So in the above example, the camera module has IP 192.168.0.123, and
+# to get to the re-streamed feed, you'd go to http://<computer-ip>/example_path
+#button_color is the html color string to use for the button on the index page
+  - name: red1
+    cam_url: http://192.168.10.12
+    path_end: r1
+    button_color: "#ee9999"
+  - name: green1
+    cam_url: http://192.168.10.13
+    path_end: g1
+    button_color: "#99ee99"
+  - name: yellow1
+    cam_url: http://192.168.10.14
+    path_end: y1
+    button_color: "#eeee99"
+  - name: blue1
+    cam_url: http://192.168.10.15
+    path_end: b1
+    button_color: "#9999ee"
+  - name: red2
+    cam_url: http://192.168.10.16
+    path_end: r2
+    button_color: "#ee9999"
+  - name: green2
+    cam_url: http://192.168.10.17
+    path_end: g2
+    button_color: "#99ee99"
+  - name: yellow2
+    cam_url: http://192.168.10.18
+    path_end: y2
+    button_color: "#eeee99"
+  - name: blue2
+    cam_url: http://192.168.10.19
+    path_end: b2
+    button_color: "#9999ee"
+#  - name: spare1
+#    cam_url: http://192.168.10.20
+#    path_end: s1
+#    button_color: "#dddddd"
+#  - name: spare2
+#    cam_url: http://192.168.10.21
+#    path_end: s2
+#    button_color: "#dddddd"
