@@ -1,7 +1,7 @@
 # run_multipart_packet_re_server
 
 from MultipartPacketReServer import MultipartPacketReServer
-from flask import Flask, Response
+from flask import Flask, Response, jsonify
 import yaml
 import sys
 import threading
@@ -42,12 +42,19 @@ def index_page():
         '{ .btndiv { width: 22%; } }</style></head><body><div style="width:100%;float:left;">'
     for idx,entry in enumerate(config['cameras']):
         page+='<a href="/'+entry['path_end']+'"><div class="btndiv" style="background-color:'+\
-                entry['button_color']+';">'+entry['name']+'</div></a>'
+                entry['button_color']+';"><h2>'+entry['name']+'</h2>FPS: <output id="'+entry['name']+'">-</output></div></a>'
         if idx%4 == 3:
             page += '</div><div style="width:100%;float:left;">'
             
     page += '</div></body></html>'
+    page += '<script>function update_fps() {fetch("/fps.json") .then(response => response.json()) .then( json => {'
+    page +=    'for (var key in json){ document.getElementById(key).innerHTML = json[key] } }) } '
+    page +=    'setInterval(update_fps,1000)</script>'
     return page
+
+@app.route('/fps.json')
+def get_fps_json():
+    return jsonify({ps.cam_name : round(ps.get_framerate(),2) for ps in pkt_server_list})
 
 #app.add_url_rule('/video', 'video', view_func=test_inst.video_client)
 
