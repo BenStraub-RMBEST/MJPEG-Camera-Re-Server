@@ -13,6 +13,10 @@ class MultipartPacketReServer:
         self._headidx = 0
         self._print = print_func
         
+        self._boundary = ''
+        self._bound_w_dash_enc = ''
+        
+        
         # stop event for flagging to kill the packet server
         self.stop_event = threading.Event()
         
@@ -24,6 +28,25 @@ class MultipartPacketReServer:
         self._rx_thread.start()
         # start server for output streams
         flaskapp.add_url_rule('/'+url_route, url_route, view_func=self.video_client)
+        
+        # counter for framerate calculation
+        self._cur_framecount = 0
+        self.framerate = 0
+        self.NUM_FRAMECOUNTS = 3
+        self._past_framecounts = [0]*self.NUM_FRAMECOUNTS
+        #r = range(self.NUM_FRAMECOUNTS, 0, -1)
+        r = [5,2,1]
+        self.FRAMECOUNT_WEIGHTS = [val/sum(r) for val in r] # simple linear taper for weights on past framecounts
+        # lock for _cur_framecount
+        self._framecount_lock = threading.Lock()
+        # framerate calc timer period, in sec
+        self.FRAMERATE_CALC_PERIOD = 1.0
+        # create and start timer thread
+        self._framerate_timer_thread = threading.Thread(target=self._framerate_calc_func)
+        self._framerate_timer_thread.start()
+        # register URL for getting framerate:
+        flaskapp.add_url_rule('/'+url_route+'/fps', url_route+'/fps', view_func=self.get_framerate_string)
+        
         
     def _connect_and_process_input(self):
         while not self.stop_event.is_set():
@@ -51,7 +74,8 @@ class MultipartPacketReServer:
                     self._headidx = (self._headidx + 1) % self.NUM_BUFFERS
                     with self._new_frame_condition: # acquire lock
                         self._new_frame_condition.notify_all() # notify any waiting threads that the next frame is ready
-                    #pkt_cnt += 1
+                    with self._framecount_lock: # acquire framecount lock
+                        self._cur_framecount += 1
                     if self.stop_event.is_set():
                         break
                     #print(str(pkt_cnt))
@@ -64,6 +88,18 @@ class MultipartPacketReServer:
             except requests.exceptions.RequestException as e:
                 self._print('ERROR: ' + self.cam_name + ': Camera input on '+self.url_route+' failed with request exception: ' + str(e))
                 return
+                
+    def _framerate_calc_func(self):
+        while not self.stop_event.wait(self.FRAMERATE_CALC_PERIOD):
+            with self._framecount_lock: # acquire framecount lock
+                new_fc = self._cur_framecount
+                self._cur_framecount = 0
+            # shift in new framecount
+            self._past_framecounts = [new_fc] + self._past_framecounts[0:self.NUM_FRAMECOUNTS-1]
+            # get weighted average (sum of frame counts times weights)
+            fc_wavg = sum(fc*wt for fc,wt in zip(self._past_framecounts, self.FRAMECOUNT_WEIGHTS))
+            # get framerate
+            self.framerate = fc_wavg/self.FRAMERATE_CALC_PERIOD
             
     def _frame_generator(self):
         #alpha=['a', 'b', 'c', 'd']
@@ -96,15 +132,23 @@ class MultipartPacketReServer:
         #return "TESTING THE WEB PAGE!"
         return Response(self._frame_generator(), mimetype='multipart/x-mixed-replace;boundary='+self._boundary, headers={'Connection':'keep-alive'})
         
+    def get_framerate(self):
+        return self.framerate
+        
+    def get_framerate_string(self):
+        return f'{self.framerate:0.1f} FPS'
+        
     def stop(self):
         self.stop_event.set()
         
     def stop_and_join(self):
         self.stop_event.set()
         self._rx_thread.join()
+        self._framerate_timer_thread.join()
         
     def join(self):
         self._rx_thread.join()
+        self._framerate_timer_thread.join()
         
 if __name__ == "__main__":
     app = Flask(__name__)
